@@ -27,5 +27,4 @@ def D(k):
         print(k)
     return sum
 
-# print(d(8910))
-print(f"{D(50000):.13e}")
+print(f"{D(50000):.12e}")
