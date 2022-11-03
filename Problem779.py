@@ -1,7 +1,10 @@
+from concurrent.futures import ThreadPoolExecutor
 from itertools import count
 from math import floor, sqrt
 import sympy
 import primesieve
+import random
+import multiprocessing
 
 def f(K, n):
     factors = sympy.factorint(n)
@@ -20,20 +23,35 @@ def f_lim(K):
         if primes[-1] ** 2 > N:
             primes.pop()
         res = 0
-        for pi, p in enumerate(primes):
-            # print(f"{N=} {p=}")
-            ppow = p * p
-            sum_nom = 0
-            while ppow <= N:
-                sum_nom += N // ppow
-                for mobius, factor in small_prime_factors(N // ppow, primes, 0, pi):
-                    sum_nom += mobius * N // (ppow * factor)
-                ppow *= p
-            res += sum_nom / (p - 1)
+
+        pis = list(range(0, len(primes)))
+        random.shuffle(pis)
+        workers = multiprocessing.cpu_count()
+        chunkSize = len(pis) // workers + 1
+        pis_chunks = [pis[i:i+chunkSize] for i in range(0, len(pis), chunkSize)]
+
+        with ThreadPoolExecutor(max_workers=workers) as executor:
+            futures = [executor.submit(calc_chunk, N, primes, pis_chunk) for pis_chunk in pis_chunks]
+            res = sum(future.result() for future in futures)
+
         res2 = res / N
-        print(f"{N=} {res2=} {res2 - prev_res2}")
+        print(f"{N=} {res2=} {res2 - prev_res2} {workers=}")
         prev_res2 = res2
         N *= 2
+
+def calc_chunk(N, primes, pis_chunk):
+    return sum(calc_prime(N, primes, pi) for pi in pis_chunk)
+
+def calc_prime(N, primes, pi):
+    p = primes[pi]
+    ppow = p * p
+    sum_nom = 0
+    while ppow <= N:
+        sum_nom += N // ppow
+        for mobius, factor in small_prime_factors(N // ppow, primes, 0, pi):
+            sum_nom += mobius * N // (ppow * factor)
+        ppow *= p
+    return sum_nom / (p - 1)
 
 def small_prime_factors(N, primes, min_pi, max_pi, product = 1, mobius = 1):
     # print(f"{N=} {primes=} {product=} {mobius=}")
@@ -44,4 +62,5 @@ def small_prime_factors(N, primes, min_pi, max_pi, product = 1, mobius = 1):
         yield -mobius, product * p
         yield from small_prime_factors(N, primes, pi + 1, max_pi, product * p, -mobius)
 
-print(f_lim(1))
+if __name__ == "__main__":
+    print(f_lim(1))
