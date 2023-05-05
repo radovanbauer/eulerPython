@@ -1,6 +1,5 @@
 from time import perf_counter
 import primesieve
-from sympy import divisors
 time1 = perf_counter()
 
 N = 10**8
